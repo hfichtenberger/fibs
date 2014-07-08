@@ -36,7 +36,7 @@ fib_temp_dir = 'tmp'
 fib_token_dir = 'tokens'
 fib_result_dir = 'results'
 
-fib_scheduler_running_filename = '.fib_scheduler'
+fib_scheduler_running_filename = 'scheduler_running'
 fib_scheduler_continuation_filename = 'continuation_file'
 
 failed_suffix = '_failed'
@@ -242,6 +242,8 @@ def scheduler_start(args):
         # No busy workers means we are done
         if attempt_to_shutdown and len(busy_workers) == 0:
             break
+        # Flush logfile
+        log_file.flush()
         # Idle-Sleep
         time.sleep(args.idletime)
 
@@ -323,15 +325,19 @@ def worker_start(args):
                     # Run job the requested number of times
                     for i in range(1, int(entry[0]) + 1, 1):
                         log_message(log_file, 'Executing job (' + str(i) + '/' + entry[0] + '): ' + entry[1])
+                        # Flush logfile
+                        log_file.flush()
                         retval = os.system(entry[1])
                         log_message(log_file, 'Finished job. Return value: ' + str(retval))
                         if retval != 0:
                             # Job failed
                             log_message(log_file, 'Job failed. Aborting whole job batch.')
-                            open(os.path.join(fib_job_dir, identifier + failed_suffix, 'w').close())
+                            open(os.path.join(fib_job_dir, identifier + failed_suffix), 'w').close()
                             delete_all_contents(output_dir)
                             abort = True
                             break
+                    # Flush logfile
+                    log_file.flush()
                     if abort:
                         break
             job_file.close()
