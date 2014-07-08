@@ -97,6 +97,16 @@ def cleanup_directory(clean_state_files=False):
 
 
 def scheduler_start(args):
+    # Register SIGTERM / SIGINT handler
+    def exit_gracefully(exitcode=0):
+        cleanup_directory()
+        if os.path.isfile(fib_scheduler_running_filename):
+            os.remove(fib_scheduler_running_filename)
+        sys.exit(exitcode)
+    signal.signal(signal.SIGABRT, exit_gracefully)
+    signal.signal(signal.SIGINT, exit_gracefully)
+    signal.signal(signal.SIGTERM, exit_gracefully)
+
     # Boot scheduler
     assert_working_dir()
     if os.path.isfile(fib_scheduler_running_filename):
@@ -106,17 +116,6 @@ def scheduler_start(args):
     log_file = os.path.join(fib_log_dir, 'scheduler.txt')
     log_file = open(log_file, 'a')
     log_message(log_file, 'Scheduler started')
-
-    # Register SIGTERM / SIGINT handler
-    def exit_gracefully(exitcode=0):
-        cleanup_directory()
-        if os.path.isfile(fib_scheduler_running_filename):
-            os.remove(fib_scheduler_running_filename)
-        sys.exit(exitcode)
-
-    signal.signal(signal.SIGABRT, exit_gracefully)
-    signal.signal(signal.SIGINT, exit_gracefully)
-    signal.signal(signal.SIGTERM, exit_gracefully)
 
     # Cleanup remainings from ungraceful terminations
     cleanup_directory()
@@ -281,10 +280,20 @@ def scheduler_stop(args):
 
 
 def worker_start(args):
-    # Boot worker
-    assert_working_dir()
     identifier = socket.gethostname() + "$" + args.identifier
     ready_filename = os.path.join(fib_token_dir, identifier)
+
+    # Register SIGTERM / SIGINT handler
+    def exit_gracefully(exitcode=0):
+        if os.path.isfile(ready_filename):
+            os.remove(ready_filename)
+        sys.exit(exitcode)
+    signal.signal(signal.SIGABRT, exit_gracefully)
+    signal.signal(signal.SIGINT, exit_gracefully)
+    signal.signal(signal.SIGTERM, exit_gracefully)
+
+    # Boot worker
+    assert_working_dir()
     if os.path.isfile(ready_filename):
         print_error('A worker with the ID ' + args.identifier + ' is already in running or has crashed.'
                     'In case of the latter, consider the repair option.')
@@ -294,16 +303,6 @@ def worker_start(args):
     log_file = os.path.join(fib_log_dir, identifier + '.txt')
     log_file = open(log_file, 'a')
     log_message(log_file, 'Worker ' + identifier + ' started')
-
-    # Register SIGTERM / SIGINT handler
-    def exit_gracefully(exitcode=0):
-        if os.path.isfile(ready_filename):
-            os.remove(ready_filename)
-        sys.exit(exitcode)
-
-    signal.signal(signal.SIGABRT, exit_gracefully)
-    signal.signal(signal.SIGINT, exit_gracefully)
-    signal.signal(signal.SIGTERM, exit_gracefully)
 
     # Waiting for jobs
     output_dir = os.path.join(fib_temp_dir, identifier)
