@@ -68,6 +68,7 @@ def get_input(lowercase=False):
     answer = answer.lower() if lowercase else answer
     return answer
 
+
 def assert_working_dir():
     if not os.path.isfile(fib_filename):
         print_error('Working directory was not initialized.')
@@ -430,15 +431,15 @@ def startup():
     # Layer 1: Scheduler Continue command
     parser_scheduler_continue = subparsers_scheduler.add_parser('continue')
     assert isinstance(parser_scheduler_continue, ArgumentParser)
-    parser_scheduler_continue .set_defaults(func=scheduler_start)
+    parser_scheduler_continue.set_defaults(func=scheduler_start)
     parser_scheduler_continue.add_argument('-e', '--exitworker', action='store_true',
-                                        help='Scheduler will send exit signals to all workers after'
-                                             'completing job list.')
+                                           help='Scheduler will send exit signals to all workers after'
+                                                'completing job list.')
     parser_scheduler_continue.add_argument('-i', '--idletime', action='store', type=float, default=5,
-                                        help='Timespan to sleep when there is nothing to to (polling interval).')
+                                           help='Timespan to sleep when there is nothing to to (polling interval).')
     parser_scheduler_continue.add_argument('-r', '--resign', action='store', type=int, default=5,
-                                        help='Number of times a job is allowed to fail before it is removed from'
-                                             'scheduling.')
+                                           help='Number of times a job is allowed to fail before it is removed from'
+                                                'scheduling.')
     # Layer 1: Scheduler Stop command
     parser_scheduler_stop = subparsers_scheduler.add_parser('stop')
     assert isinstance(parser_scheduler_stop, ArgumentParser)
@@ -464,7 +465,7 @@ def startup():
     # Layer 1: Worker Stopall command
     parser_worker_stopall = subparsers_worker.add_parser('stopall')
     assert isinstance(parser_worker_stopall, ArgumentParser)
-    parser_worker_stopall .set_defaults(func=worker_stopall)
+    parser_worker_stopall.set_defaults(func=worker_stopall)
     # Layer 0: Init command
     parser_init = subparsers.add_parser('init')
     assert isinstance(parser_init, ArgumentParser)
