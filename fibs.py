@@ -124,7 +124,7 @@ def scheduler_start(args):
         if os.path.isfile(fib_scheduler_continuation_filename):
             print_error('Please remove the continuation file "' + fib_scheduler_continuation_filename + '" to confirm '
                         'that you want to start over. You might also want to delete existing results and logs by '
-                        'using the wipeout command.')
+                        'using the reset command.')
             sys.exit(1)
         else:
             if not os.path.isfile(args.jobfile):
@@ -383,7 +383,7 @@ def repair(args):
         sys.exit(1)
 
 
-def wipeout(args):
+def reset(args):
     print('ATTENTION! This command will erase everything (including results and logs)!')
     randstr = id_generator(4)
     print('Confirm to proceed by typing: ' + randstr)
@@ -394,9 +394,9 @@ def wipeout(args):
         delete_all_contents(fib_log_dir)
         if os.path.isfile(fib_scheduler_continuation_filename):
             os.remove(fib_scheduler_continuation_filename)
-        print('Wipeout finished.')
+        print('Reset finished.')
     else:
-        print('Wipeout aborted.')
+        print('Reset aborted.')
         sys.exit(1)
 
 
@@ -458,10 +458,10 @@ def startup():
     parser_repair = subparsers.add_parser('repair')
     assert isinstance(parser_repair, ArgumentParser)
     parser_repair.set_defaults(func=repair)
-    # Layer 0: Wipeout command
-    parser_wipeout = subparsers.add_parser('wipeout')
-    assert isinstance(parser_wipeout, ArgumentParser)
-    parser_wipeout.set_defaults(func=wipeout)
+    # Layer 0: Reset command
+    parser_reset = subparsers.add_parser('reset')
+    assert isinstance(parser_reset, ArgumentParser)
+    parser_reset.set_defaults(func=reset)
 
     args = parser.parse_args()
     args.func(args)
