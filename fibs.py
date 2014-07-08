@@ -107,14 +107,15 @@ def scheduler_start(args):
     log_message(log_file, 'Scheduler started')
 
     # Register SIGTERM / SIGINT handler
-    def signal_term_handler():
+    def exit_gracefully(exitcode=0):
         cleanup_directory()
-        os.remove(fib_scheduler_running_filename)
-        sys.exit(0)
+        if os.path.isfile(fib_scheduler_running_filename):
+            os.remove(fib_scheduler_running_filename)
+        sys.exit(exitcode)
 
-    signal.signal(signal.SIGABRT, signal_term_handler)
-    signal.signal(signal.SIGINT, signal_term_handler)
-    signal.signal(signal.SIGTERM, signal_term_handler)
+    signal.signal(signal.SIGABRT, exit_gracefully)
+    signal.signal(signal.SIGINT, exit_gracefully)
+    signal.signal(signal.SIGTERM, exit_gracefully)
 
     # Cleanup remainings from ungraceful terminations
     cleanup_directory()
@@ -125,18 +126,18 @@ def scheduler_start(args):
             print_error('Please remove the continuation file "' + fib_scheduler_continuation_filename + '" to confirm '
                         'that you want to start over. You might also want to delete existing results and logs by '
                         'using the reset command.')
-            sys.exit(1)
+            exit_gracefully(1)
         else:
             if not os.path.isfile(args.jobfile):
                 print_error('Job file "' + args.jobfile + '" does not exist.')
-                sys.exit(1)
+                exit_gracefully(1)
             job_file = open(args.jobfile, 'r')
     else:
         if os.path.isfile(fib_scheduler_continuation_filename):
             job_file = open(fib_scheduler_continuation_filename, 'r')
         else:
             print_error('No continuation file.')
-            sys.exit(1)
+            exit_gracefully(1)
     # Read configuration
     active_jobs = list()
     finished_jobs = list()
@@ -266,7 +267,7 @@ def scheduler_start(args):
         delete_all_contents(fib_token_dir)
 
     log_message(log_file, 'Scheduler stopped')
-    signal_term_handler()
+    exit_gracefully()
 
 
 def scheduler_stop(args):
@@ -283,7 +284,7 @@ def worker_start(args):
     assert_working_dir()
     identifier = socket.gethostname() + "$" + args.identifier
     ready_filename = os.path.join(fib_token_dir, identifier)
-    if os.path.isfile(ready_filename) and not args.force:
+    if os.path.isfile(ready_filename):
         print_error('A worker with the ID ' + args.identifier + ' is already in running or has crashed.'
                     'In case of the latter, consider the repair option.')
         sys.exit(1)
@@ -294,14 +295,14 @@ def worker_start(args):
     log_message(log_file, 'Worker ' + identifier + ' started')
 
     # Register SIGTERM / SIGINT handler
-    def signal_term_handler():
+    def exit_gracefully(exitcode=0):
         if os.path.isfile(ready_filename):
             os.remove(ready_filename)
-        sys.exit(0)
+        sys.exit(exitcode)
 
-    signal.signal(signal.SIGABRT, signal_term_handler)
-    signal.signal(signal.SIGINT, signal_term_handler)
-    signal.signal(signal.SIGTERM, signal_term_handler)
+    signal.signal(signal.SIGABRT, exit_gracefully)
+    signal.signal(signal.SIGINT, exit_gracefully)
+    signal.signal(signal.SIGTERM, exit_gracefully)
 
     # Waiting for jobs
     output_dir = os.path.join(fib_temp_dir, identifier)
@@ -345,7 +346,7 @@ def worker_start(args):
 
     log_message(log_file, 'Worker ' + identifier + ' stopped')
     log_file.close()
-    signal_term_handler()
+    exit_gracefully()
 
 
 def worker_stop(args):
@@ -430,6 +431,14 @@ def startup():
     parser_scheduler_continue = subparsers_scheduler.add_parser('continue')
     assert isinstance(parser_scheduler_continue, ArgumentParser)
     parser_scheduler_continue .set_defaults(func=scheduler_start)
+    parser_scheduler_continue.add_argument('-e', '--exitworker', action='store_true',
+                                        help='Scheduler will send exit signals to all workers after'
+                                             'completing job list.')
+    parser_scheduler_continue.add_argument('-i', '--idletime', action='store', type=float, default=5,
+                                        help='Timespan to sleep when there is nothing to to (polling interval).')
+    parser_scheduler_continue.add_argument('-r', '--resign', action='store', type=int, default=5,
+                                        help='Number of times a job is allowed to fail before it is removed from'
+                                             'scheduling.')
     # Layer 1: Scheduler Stop command
     parser_scheduler_stop = subparsers_scheduler.add_parser('stop')
     assert isinstance(parser_scheduler_stop, ArgumentParser)
