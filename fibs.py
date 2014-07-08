@@ -113,8 +113,8 @@ def scheduler_start(args):
         print_error('Scheduler is already running or has crashed. In case of the latter, consider the repair option.')
         sys.exit(1)
     open(fib_scheduler_running_filename, 'w').close()
-    log_file = os.path.join(fib_log_dir, 'scheduler.txt')
-    log_file = open(log_file, 'a')
+    log_filename = os.path.join(fib_log_dir, 'scheduler.txt')
+    log_file = open(log_filename, 'a')
     log_message(log_file, 'Scheduler started')
 
     # Cleanup remainings from ungraceful terminations
@@ -228,13 +228,13 @@ def scheduler_start(args):
             else:
                 os.mkdir(outdir)
             # Prepare job file
-            prel_jobfilename = os.path.join(fib_job_dir, id_generator())
+            temp_jobfilename = os.path.join(fib_job_dir, id_generator())
             real_jobfilename = os.path.join(fib_job_dir, worker)
-            prel_jobfile = open(prel_jobfilename, 'w')
-            prel_jobfile.write(str(num_assigned_jobs) + ' ' + job.command + '\n')
-            prel_jobfile.close()
+            temp_jobfile = open(temp_jobfilename, 'w')
+            temp_jobfile.write(str(num_assigned_jobs) + ' ' + job.command + '\n')
+            temp_jobfile.close()
             # Go worker!
-            os.rename(prel_jobfilename, real_jobfilename)
+            os.rename(temp_jobfilename, real_jobfilename)
             log_message(log_file, 'Busy worker: Scheduled on worker ' + worker + " the job " + job.command)
         # Token file removed?
         if not os.path.isfile(fib_scheduler_running_filename) and not attempt_to_shutdown:
@@ -300,8 +300,8 @@ def worker_start(args):
         sys.exit(1)
     open(ready_filename, 'w').close()
     job_filename = os.path.join(fib_job_dir, identifier)
-    log_file = os.path.join(fib_log_dir, identifier + '.txt')
-    log_file = open(log_file, 'a')
+    log_filename = os.path.join(fib_log_dir, identifier + '.txt')
+    log_file = open(log_filename, 'a')
     log_message(log_file, 'Worker ' + identifier + ' started')
 
     # Waiting for jobs
