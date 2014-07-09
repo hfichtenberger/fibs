@@ -23,6 +23,7 @@ import random
 import signal
 import socket
 import string
+import subprocess
 import sys
 import time
 
@@ -75,6 +76,10 @@ def assert_working_dir():
         sys.exit(1)
 
 
+def build_identifier(a, b):
+    return a + '_' + b
+
+
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
@@ -98,7 +103,7 @@ def cleanup_directory(clean_state_files=False):
 
 def scheduler_start(args):
     # Register SIGTERM / SIGINT handler
-    def exit_gracefully(exitcode=0):
+    def exit_gracefully(exitcode=0, frame=None):
         cleanup_directory()
         if os.path.isfile(fib_scheduler_running_filename):
             os.remove(fib_scheduler_running_filename)
@@ -164,9 +169,9 @@ def scheduler_start(args):
         for filename in ready_files:
             if not (filename in idle_workers or filename in busy_workers):
                 log_message(log_file, 'New worker: ' + filename)
-                prel_dirname = os.path.join(fib_temp_dir, filename)
-                if not os.path.isdir(prel_dirname):
-                    os.mkdir(prel_dirname)
+                temp_dirname = os.path.join(fib_temp_dir, filename)
+                if not os.path.isdir(temp_dirname):
+                    os.mkdir(temp_dirname)
                 idle_workers.add(filename)
         # Check for busy -> idle workers
         for worker in busy_workers.copy():
@@ -235,7 +240,7 @@ def scheduler_start(args):
             temp_jobfile.close()
             # Go worker!
             os.rename(temp_jobfilename, real_jobfilename)
-            log_message(log_file, 'Busy worker: Scheduled on worker ' + worker + " the job " + job.command)
+            log_message(log_file, 'Busy worker: Scheduled on worker ' + worker + " the job: " + job.command)
         # Token file removed?
         if not os.path.isfile(fib_scheduler_running_filename) and not attempt_to_shutdown:
             log_message(log_file, 'Token file was delete. Scheduler will stop after all workers completed.')
@@ -280,11 +285,11 @@ def scheduler_stop(args):
 
 
 def worker_start(args):
-    identifier = socket.gethostname() + "$" + args.identifier
+    identifier = build_identifier(socket.gethostname(), args.identifier)
     ready_filename = os.path.join(fib_token_dir, identifier)
 
     # Register SIGTERM / SIGINT handler
-    def exit_gracefully(exitcode=0):
+    def exit_gracefully(exitcode=0, frame=None):
         if os.path.isfile(ready_filename):
             os.remove(ready_filename)
         sys.exit(exitcode)
@@ -305,7 +310,7 @@ def worker_start(args):
     log_message(log_file, 'Worker ' + identifier + ' started')
 
     # Waiting for jobs
-    output_dir = os.path.join(fib_temp_dir, identifier)
+    output_dir = os.path.join(os.getcwd(), fib_temp_dir, identifier)
     while True:
         if not os.path.isfile(ready_filename):
             log_message(log_file, 'Token file was deleted. Worker will stop.')
@@ -328,9 +333,10 @@ def worker_start(args):
                         log_message(log_file, 'Executing job (' + str(i) + '/' + entry[0] + '): ' + entry[1])
                         # Flush logfile
                         log_file.flush()
-                        retval = os.system(entry[1])
-                        log_message(log_file, 'Finished job. Return value: ' + str(retval))
-                        if retval != 0:
+                        process = subprocess.Popen(entry[1], shell=True)
+                        process.wait()
+                        log_message(log_file, 'Finished job. Return value: ' + str(process.returncode))
+                        if process.returncode != 0:
                             # Job failed
                             log_message(log_file, 'Job failed. Aborting whole job batch.')
                             open(os.path.join(fib_job_dir, identifier + failed_suffix), 'w').close()
