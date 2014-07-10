@@ -1,4 +1,6 @@
-__author__ = 'Hendrik Fichtenberger <hendrik.fichtenberger@tu-dortmund.de>'
+#!/usr/bin/env python
+
+"""FIBS - a file-based scheduler"""
 
 # Python <= 2.6 requires argparse package
 import __builtin__
@@ -31,6 +33,10 @@ import sys
 import textwrap
 import time
 
+
+__author__ = 'Hendrik Fichtenberger'
+__version__ = '1.0.0'
+__email__ = 'firstname.lastname@tu-dortmund.de'
 
 fib_filename = '.fib'
 fib_job_dir = 'jobs'
