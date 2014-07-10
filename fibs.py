@@ -17,6 +17,7 @@ def tryimport(name, globals={}, locals={}, fromlist=[], level=-1):
 
 realimport, __builtin__.__import__ = __builtin__.__import__, tryimport
 
+import argparse
 import datetime
 import os
 import random
@@ -25,9 +26,8 @@ import socket
 import string
 import subprocess
 import sys
+import textwrap
 import time
-
-from argparse import ArgumentParser
 
 
 fib_filename = '.fib'
@@ -61,7 +61,7 @@ def print_error(message):
 
 def log_message(filehandle, message):
     filehandle.write(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + message + '\n')
-    print(message)
+    #print(message)
 
 
 def get_input(lowercase=False):
@@ -243,7 +243,7 @@ def scheduler_start(args):
             log_message(log_file, 'Busy worker: Scheduled on worker ' + worker + " the job: " + job.command)
         # Token file removed?
         if not os.path.isfile(fib_scheduler_running_filename) and not attempt_to_shutdown:
-            log_message(log_file, 'Token file was delete. Scheduler will stop after all workers completed.')
+            log_message(log_file, 'Token file was deleted. Scheduler will stop after all workers completed.')
             attempt_to_shutdown = True
         # No busy workers means we are done
         if attempt_to_shutdown and len(busy_workers) == 0:
@@ -413,76 +413,120 @@ def reset(args):
         sys.exit(1)
 
 
+def help(args):
+    w = textwrap.TextWrapper(width=args.width)
+    print(w.fill('FIBS is a self-contained python script for scheduling a bunch of user-defined commands ("jobs") on one or more computers. There are two main modes, "scheduler" and "worker". In scheduler mode, FIBS processes a job file supplied by the user and schedules all contained jobs to available workers. In worker mode, FIBS accepts and executes jobs deployed by the scheduler. Multiple workers running on the same or on different computers can connect to the same scheduler. The medium of communication used to distribute jobs and receive results is a shared directory, e.g. the home directory of the user running FIBS.'))
+    print('')
+    print(w.fill('# Job file'))
+    print(w.fill('The job file uses a simple text format where each line corresponds to a job. The format is:'))
+    print(w.fill('<n> <m> <cmd>'))
+    print(w.fill('It means that the command <cmd> is run <n> times by scheduling batches of size <m>. For example'))
+    print(w.fill('10 2 echo "Hello world!"'))
+    print(w.fill('would schedule the echo command to available workers five times and each time such a worker would print "Hello world!" twice. The commands may contain placeholders:'))
+    w.subsequent_indent = '  '
+    print(w.fill('- $HOST$ will be replaced by the worker\'s hostname'))
+    print(w.fill('- $INSTANCE$ will be replaced by the worker\'s identifier which is unique on its host'))
+    print(w.fill('- $OUTPUT$ will be replaced by the full path to a directory whose top-level files are collected by the scheduler after the job was successfully executed'))
+    w.subsequent_indent = ''
+    print('')
+    print(w.fill('# Basic usage'))
+    print(w.fill('Initialize a directory as working directory by running'))
+    w.subsequent_indent = '  '
+    print(w.fill('> python ' + sys.argv[0] + ' init'))
+    w.subsequent_indent = ''
+    print(w.fill('inside of it. Start the scheduler inside the working directory by'))
+    w.subsequent_indent = '  '
+    print(w.fill('> python ' + sys.argv[0] + ' scheduler start'))
+    w.subsequent_indent = ''
+    print(w.fill('and start one or more workers inside the working directory by'))
+    w.subsequent_indent = '  '
+    print(w.fill('> python ' + sys.argv[0] + ' worker <id>'))
+    w.subsequent_indent = ''
+    print(w.fill('where <id> is a unique identifier for the worker on the host running it.'))
+    print(w.fill('You may start workers on machines that differ from the one running the scheduler. The only condition is that the working directory must be accessible. More commands exist, and help texts are available through the -h / --help commandline argument. Example:'))
+    w.subsequent_indent = '  '
+    print(w.fill('> python ' + sys.argv[0] + ' -h scheduler'))
+    print(w.fill('> python ' + sys.argv[0] + ' worker -h start'))
+    w.subsequent_indent = ''
+    print('')
+    print(w.fill('# Directory structure'))
+    print(w.fill('Results are collected in the "' + fib_result_dir + '" directory. Logs are placed in the "' + fib_log_dir + '" directory. "' + fib_token_dir + '" is used by the workers to announce their presence to the scheduler, "' + fib_job_dir + '" is used by the scheduler to deploy jobs the workers and "' + fib_temp_dir + '" is the worker output directory from where the scheduler moves the result files to the results directory after a job finished successfully, i.e., its exit code equals 0.'''))
+
+
 def startup():
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser(description='FIBS - a file-based scheduler',
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
     subparsers = parser.add_subparsers()
     # Layer 0: Scheduler command
-    parser_scheduler = subparsers.add_parser('scheduler')
-    assert isinstance(parser_scheduler, ArgumentParser)
+    parser_scheduler = subparsers.add_parser('scheduler', help='scheduler mode')
+    assert isinstance(parser_scheduler, argparse.ArgumentParser)
     subparsers_scheduler = parser_scheduler.add_subparsers(dest='subparser_name')
     # Layer 1: Scheduler Start command
-    parser_scheduler_start = subparsers_scheduler.add_parser('start')
-    assert isinstance(parser_scheduler_start, ArgumentParser)
+    parser_scheduler_start = subparsers_scheduler.add_parser('start', help='start scheduler')
+    assert isinstance(parser_scheduler_start, argparse.ArgumentParser)
     parser_scheduler_start.set_defaults(func=scheduler_start)
-    parser_scheduler_start.add_argument('jobfile', help='Path to job file or "continue"')
+    parser_scheduler_start.add_argument('jobfile', help='path to job file')
     parser_scheduler_start.add_argument('-e', '--exitworker', action='store_true',
-                                        help='Scheduler will send exit signals to all workers after'
-                                             'completing job list.')
+                                        help='scheduler will send exit signals to all workers after completing job list.')
     parser_scheduler_start.add_argument('-i', '--idletime', action='store', type=float, default=5,
-                                        help='Timespan to sleep when there is nothing to to (polling interval).')
+                                        help='timespan to sleep when there is nothing to to (polling interval).')
     parser_scheduler_start.add_argument('-r', '--resign', action='store', type=int, default=5,
-                                        help='Number of times a job is allowed to fail before it is removed from'
-                                             'scheduling.')
+                                        help='number of times a job is allowed to fail before it is removed from scheduling.')
     # Layer 1: Scheduler Continue command
-    parser_scheduler_continue = subparsers_scheduler.add_parser('continue')
-    assert isinstance(parser_scheduler_continue, ArgumentParser)
+    parser_scheduler_continue = subparsers_scheduler.add_parser('continue', help='continue previously paused job processing')
+    assert isinstance(parser_scheduler_continue, argparse.ArgumentParser)
     parser_scheduler_continue.set_defaults(func=scheduler_start)
     parser_scheduler_continue.add_argument('-e', '--exitworker', action='store_true',
-                                           help='Scheduler will send exit signals to all workers after'
+                                           help='scheduler will send exit signals to all workers after'
                                                 'completing job list.')
     parser_scheduler_continue.add_argument('-i', '--idletime', action='store', type=float, default=5,
-                                           help='Timespan to sleep when there is nothing to to (polling interval).')
+                                           help='timespan to sleep when there is nothing to to (scheduling interval).')
     parser_scheduler_continue.add_argument('-r', '--resign', action='store', type=int, default=5,
-                                           help='Number of times a job is allowed to fail before it is removed from'
-                                                'scheduling.')
+                                           help='number of times a job is allowed to fail before it is removed from scheduling.')
     # Layer 1: Scheduler Stop command
-    parser_scheduler_stop = subparsers_scheduler.add_parser('stop')
-    assert isinstance(parser_scheduler_stop, ArgumentParser)
+    parser_scheduler_stop = subparsers_scheduler.add_parser('stop', help='stop gracefully after all busy worker have finished and write remaining jobs to continuation file')
+    assert isinstance(parser_scheduler_stop, argparse.ArgumentParser)
     parser_scheduler_stop.set_defaults(func=scheduler_stop)
     # Layer 0: Worker command
-    parser_worker = subparsers.add_parser('worker')
-    assert isinstance(parser_worker, ArgumentParser)
+    parser_worker = subparsers.add_parser('worker', help='worker mode')
+    assert isinstance(parser_worker, argparse.ArgumentParser)
     subparsers_worker = parser_worker.add_subparsers()
     # Layer 1: Worker Start command
-    parser_worker_start = subparsers_worker.add_parser('start')
-    assert isinstance(parser_worker_start, ArgumentParser)
+    parser_worker_start = subparsers_worker.add_parser('start', help='start Worker')
+    assert isinstance(parser_worker_start, argparse.ArgumentParser)
     parser_worker_start.add_argument('identifier', type=str, default='1',
-                                     help='Unique identifier on this machine')
+                                     help='unique identifier on this machine')
     parser_worker_start.add_argument('-i', '--idletime', action='store', type=float, default=5,
-                                     help='Timespan to sleep when there is nothing to to (polling interval).')
+                                     help='timespan to sleep when there is nothing to to (job polling interval).')
     parser_worker_start.set_defaults(func=worker_start)
     # Layer 1: Worker Stop command
-    parser_worker_stop = subparsers_worker.add_parser('stop')
-    assert isinstance(parser_worker_stop, ArgumentParser)
+    parser_worker_stop = subparsers_worker.add_parser('stop', help='stop gracefully after current job')
+    assert isinstance(parser_worker_stop, argparse.ArgumentParser)
     parser_worker_stop.add_argument('identifier', type=str, default='1',
-                                    help='Unique identifier on this machine')
+                                    help='unique identifier on this machine')
     parser_worker_stop.set_defaults(func=worker_stop)
     # Layer 1: Worker Stopall command
-    parser_worker_stopall = subparsers_worker.add_parser('stopall')
-    assert isinstance(parser_worker_stopall, ArgumentParser)
+    parser_worker_stopall = subparsers_worker.add_parser('stopall', help='stop all workers gracefully after their current jobs')
+    assert isinstance(parser_worker_stopall, argparse.ArgumentParser)
     parser_worker_stopall.set_defaults(func=worker_stopall)
     # Layer 0: Init command
-    parser_init = subparsers.add_parser('init')
-    assert isinstance(parser_init, ArgumentParser)
+    parser_init = subparsers.add_parser('init', help='initialize current directory as working directory')
+    assert isinstance(parser_init, argparse.ArgumentParser)
     parser_init.set_defaults(func=initialize)
     # Layer 0: Repair command
-    parser_repair = subparsers.add_parser('repair')
-    assert isinstance(parser_repair, ArgumentParser)
+    parser_repair = subparsers.add_parser('repair', help='repair working directory')
+    assert isinstance(parser_repair, argparse.ArgumentParser)
     parser_repair.set_defaults(func=repair)
     # Layer 0: Reset command
-    parser_reset = subparsers.add_parser('reset')
-    assert isinstance(parser_reset, ArgumentParser)
+    parser_reset = subparsers.add_parser('reset', help='reset working directory (wipe all data)')
+    assert isinstance(parser_reset, argparse.ArgumentParser)
     parser_reset.set_defaults(func=reset)
+    # Layer 0: Help command
+    parser_help = subparsers.add_parser('help', help='show help')
+    assert isinstance(parser_help, argparse.ArgumentParser)
+    parser_help.add_argument('-w', '--width', type=int, default='80',
+                             help='line width of help text')
+    parser_help.set_defaults(func=help)
 
     args = parser.parse_args()
     args.func(args)
