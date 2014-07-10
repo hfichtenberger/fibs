@@ -1,5 +1,6 @@
-__author__ = 'Hendrik'
+__author__ = 'Hendrik Fichtenberger <hendrik.fichtenberger@tu-dortmund.de>'
 
+# Python <= 2.6 requires argparse package
 import __builtin__
 
 
@@ -9,7 +10,8 @@ def tryimport(name, globals={}, locals={}, fromlist=[], level=-1):
     except ImportError:
         if name == 'argparse' and sys.version_info[0] <= 2 and sys.version_info[1] <= 6:
             print('Python <= 2.6: Please download argparse.py from argparse package and place it in the same'
-                  'directory as this file.')
+                  'directory as this file. At the moment of this writing, it is available at:')
+            print('https://pypi.python.org/pypi/argparse')
             sys.exit(1)
         else:
             raise
@@ -415,18 +417,30 @@ def reset(args):
 
 def help(args):
     w = textwrap.TextWrapper(width=args.width)
-    print(w.fill('FIBS is a self-contained python script for scheduling a bunch of user-defined commands ("jobs") on one or more computers. There are two main modes, "scheduler" and "worker". In scheduler mode, FIBS processes a job file supplied by the user and schedules all contained jobs to available workers. In worker mode, FIBS accepts and executes jobs deployed by the scheduler. Multiple workers running on the same or on different computers can connect to the same scheduler. The medium of communication used to distribute jobs and receive results is a shared directory, e.g. the home directory of the user running FIBS.'))
+    print(w.fill('FIBS is a self-contained python script for scheduling a bunch of user-defined commands ("jobs") '
+                 'on one or more computers. There are two main modes: "scheduler" mode and "worker" mode. In scheduler '
+                 'mode, FIBS processes a job file supplied by the user (you!) and schedules all contained jobs to '
+                 'available workers. In worker mode, FIBS accepts and executes jobs deployed by the scheduler. '
+                 'Multiple workers running on the same or on different machines can connect to the same scheduler. '
+                 'The medium of communication used to distribute jobs and receive results is a shared directory, e.g. '
+                 'a subdirectory of your home directory.'))
     print('')
     print(w.fill('# Job file'))
-    print(w.fill('The job file uses a simple text format where each line corresponds to a job. The format is:'))
+    print(w.fill('The job file uses a simple text format where each line corresponds to a job. The line format is:'))
     print(w.fill('<n> <m> <cmd>'))
-    print(w.fill('It means that the command <cmd> is run <n> times by scheduling batches of size <m>. For example'))
+    print(w.fill('This will instruct the scheduler to schedule the command <cmd> to available workers <n> times '
+                 'in batches of size <m>. For example'))
     print(w.fill('10 2 echo "Hello world!"'))
-    print(w.fill('would schedule the echo command to available workers five times and each time such a worker would print "Hello world!" twice. The commands may contain placeholders:'))
+    print(w.fill('would schedule the echo command to available workers five times, and each time a worker would '
+                 'print "Hello world!" twice. If a job fails, i.e., its exit code differs from 0, the whole batch is '
+                 'discarded and queued for schedule again.'))
+    print (w.fill('The commands may contain placeholders:'))
     w.subsequent_indent = '  '
     print(w.fill('- $HOST$ will be replaced by the worker\'s hostname'))
-    print(w.fill('- $INSTANCE$ will be replaced by the worker\'s identifier which is unique on its host'))
-    print(w.fill('- $OUTPUT$ will be replaced by the full path to a directory whose top-level files are collected by the scheduler after the job was successfully executed'))
+    print(w.fill('- $INSTANCE$ will be replaced by the worker\'s identifier which is unique amongst all workers '
+                 'running on the same host'))
+    print(w.fill('- $OUTPUT$ will be replaced by the full path to a directory whose top-level files are collected by '
+                 'the scheduler after the job (batch) was successfully executed'))
     w.subsequent_indent = ''
     print('')
     print(w.fill('# Basic usage'))
@@ -434,23 +448,43 @@ def help(args):
     w.subsequent_indent = '  '
     print(w.fill('> python ' + sys.argv[0] + ' init'))
     w.subsequent_indent = ''
-    print(w.fill('inside of it. Start the scheduler inside the working directory by'))
+    print(w.fill('inside of it. Write a job file. Start the scheduler inside the working directory by executing'))
     w.subsequent_indent = '  '
-    print(w.fill('> python ' + sys.argv[0] + ' scheduler start'))
+    print(w.fill('> python ' + sys.argv[0] + ' scheduler start <jobfile>'))
     w.subsequent_indent = ''
-    print(w.fill('and start one or more workers inside the working directory by'))
+    print(w.fill('and start one or more workers inside the working directory by running'))
     w.subsequent_indent = '  '
     print(w.fill('> python ' + sys.argv[0] + ' worker <id>'))
     w.subsequent_indent = ''
-    print(w.fill('where <id> is a unique identifier for the worker on the host running it.'))
-    print(w.fill('You may start workers on machines that differ from the one running the scheduler. The only condition is that the working directory must be accessible. More commands exist, and help texts are available through the -h / --help commandline argument. Example:'))
+    print(w.fill('where <id> is a identifier which has to be unique amongst all workers running on the same host.'))
+    print(w.fill('You may start workers on machines that differ from the one running the scheduler. The only '
+                 'requirement is that the working directory must be accessible. For runtime measurements, you '
+                 'should consider using a separate machine for scheduling.'))
+    print(w.fill('More commands exist, and help texts are available through the -h / --help commandline argument.'
+                 'Example:'))
     w.subsequent_indent = '  '
     print(w.fill('> python ' + sys.argv[0] + ' -h scheduler'))
     print(w.fill('> python ' + sys.argv[0] + ' worker -h start'))
     w.subsequent_indent = ''
     print('')
     print(w.fill('# Directory structure'))
-    print(w.fill('Results are collected in the "' + fib_result_dir + '" directory. Logs are placed in the "' + fib_log_dir + '" directory. "' + fib_token_dir + '" is used by the workers to announce their presence to the scheduler, "' + fib_job_dir + '" is used by the scheduler to deploy jobs the workers and "' + fib_temp_dir + '" is the worker output directory from where the scheduler moves the result files to the results directory after a job finished successfully, i.e., its exit code equals 0.'''))
+    print(w.fill('Results are collected in the "' + fib_result_dir + '" directory. Logs are placed in the "'
+                 + fib_log_dir + '" directory. "' + fib_token_dir + '" is used by the workers to announce their '
+                                                                    'presence to the scheduler, "' + fib_job_dir
+                 + '" is used by the scheduler to deploy jobs the workers and "' + fib_temp_dir
+                 + '" is the worker output directory from where the scheduler moves the result files to the results '
+                   'directory after a job finished successfully, i.e., its exit code equals 0. The file "'
+                 + fib_scheduler_running_filename + '" announces that a scheduler is running in the working '
+                                                    'directory. Continuation files are named "'
+                 + fib_scheduler_continuation_filename + '".'))
+    print('')
+    print(w.fill('# Advanced commands'))
+    print(w.fill('There is a "repair" command to repair corrupted working directories, e.g. after a worker crashed '
+                 '(which will hopefully never happen!). Please make sure that no scheduler and no workers are '
+                 'running in the working directory before using it.'))
+    print(w.fill('Use the "reset" command to wipe all data in your working directory. Be aware that this will delete '
+                 'all results and logs, too! To keep you safe from harm, there is a preceding test of your '
+                 'soundness of mind before anything is touched.'))
 
 
 def startup():
@@ -467,13 +501,16 @@ def startup():
     parser_scheduler_start.set_defaults(func=scheduler_start)
     parser_scheduler_start.add_argument('jobfile', help='path to job file')
     parser_scheduler_start.add_argument('-e', '--exitworker', action='store_true',
-                                        help='scheduler will send exit signals to all workers after completing job list.')
+                                        help='scheduler will send exit signals to all workers after completing '
+                                             'job list.')
     parser_scheduler_start.add_argument('-i', '--idletime', action='store', type=float, default=5,
                                         help='timespan to sleep when there is nothing to to (polling interval).')
     parser_scheduler_start.add_argument('-r', '--resign', action='store', type=int, default=5,
-                                        help='number of times a job is allowed to fail before it is removed from scheduling.')
+                                        help='number of times a job is allowed to fail before it is removed from '
+                                             'scheduling.')
     # Layer 1: Scheduler Continue command
-    parser_scheduler_continue = subparsers_scheduler.add_parser('continue', help='continue previously paused job processing')
+    parser_scheduler_continue = subparsers_scheduler.add_parser('continue', help='continue previously paused job '
+                                                                                 'processing')
     assert isinstance(parser_scheduler_continue, argparse.ArgumentParser)
     parser_scheduler_continue.set_defaults(func=scheduler_start)
     parser_scheduler_continue.add_argument('-e', '--exitworker', action='store_true',
@@ -482,9 +519,12 @@ def startup():
     parser_scheduler_continue.add_argument('-i', '--idletime', action='store', type=float, default=5,
                                            help='timespan to sleep when there is nothing to to (scheduling interval).')
     parser_scheduler_continue.add_argument('-r', '--resign', action='store', type=int, default=5,
-                                           help='number of times a job is allowed to fail before it is removed from scheduling.')
+                                           help='number of times a job is allowed to fail before it is removed from '
+                                                'scheduling.')
     # Layer 1: Scheduler Stop command
-    parser_scheduler_stop = subparsers_scheduler.add_parser('stop', help='stop gracefully after all busy worker have finished and write remaining jobs to continuation file')
+    parser_scheduler_stop = subparsers_scheduler.add_parser('stop', help='stop gracefully after all busy worker have '
+                                                                         'finished and write remaining jobs to '
+                                                                         'continuation file')
     assert isinstance(parser_scheduler_stop, argparse.ArgumentParser)
     parser_scheduler_stop.set_defaults(func=scheduler_stop)
     # Layer 0: Worker command
@@ -506,7 +546,8 @@ def startup():
                                     help='unique identifier on this machine')
     parser_worker_stop.set_defaults(func=worker_stop)
     # Layer 1: Worker Stopall command
-    parser_worker_stopall = subparsers_worker.add_parser('stopall', help='stop all workers gracefully after their current jobs')
+    parser_worker_stopall = subparsers_worker.add_parser('stopall', help='stop all workers gracefully after their '
+                                                                         'current jobs')
     assert isinstance(parser_worker_stopall, argparse.ArgumentParser)
     parser_worker_stopall.set_defaults(func=worker_stopall)
     # Layer 0: Init command
