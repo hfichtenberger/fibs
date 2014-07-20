@@ -270,10 +270,26 @@ def scheduler_start(args):
             remaining_jobs_file.write(
                 str(job.remaining_runs) + ' ' + str(job.run_per_assignment) + ' ' + str(job.command) + '\n')
     remaining_jobs_file.close()
+    email_title = 'FIBS '
+    email_msg = args.jobfile + '\n'
     if wrote_continuation_file:
         log_message(log_file, 'Wrote continuation file because there are remaining jobs.')
+        email_title += 'PAUSED: '
+        email_msg += 'Job scheduling has been PAUSED.'
     else:
         os.remove(fib_scheduler_continuation_filename)
+        email_title += 'FINISHED: '
+        email_msg += 'All jobs have been FINISHED.'
+    email_title += args.jobfile
+
+    # Send mail?
+    if args.sendmail is not None:
+        mailhandle = subprocess.Popen('mail -s ' + email_title + ' ' + args.sendmail, stdin=subprocess.PIPE)
+        mailhandle.communicate(email_msg)
+        if mailhandle.wait() == 0:
+            log_message(log_file, 'Sent mail to operator.')
+        else:
+            log_message(log_file, 'Sending mail to operator failed.')
 
     # Exit workers?
     if args.exitworker:
@@ -514,6 +530,9 @@ def startup():
     parser_scheduler_start.add_argument('-r', '--resign', action='store', type=int, default=5,
                                         help='number of times a job is allowed to fail before it is removed from '
                                              'scheduling.')
+    parser_scheduler_start.add_argument('-m', '--sendmail', action='store', type=string,
+                                        help='a mail will be sent to this address when scheduling is paused'
+                                             'or finished. Uses the "mail" command. ')
     # Layer 1: Scheduler Continue command
     parser_scheduler_continue = subparsers_scheduler.add_parser('continue', help='continue previously paused job '
                                                                                  'processing')
@@ -527,6 +546,9 @@ def startup():
     parser_scheduler_continue.add_argument('-r', '--resign', action='store', type=int, default=5,
                                            help='number of times a job is allowed to fail before it is removed from '
                                                 'scheduling.')
+    parser_scheduler_start.add_argument('-m', '--sendmail', action='store', type=string,
+                                        help='a mail will be sent to this address when scheduling is paused'
+                                             'or finished. Uses the "mail" command. ')
     # Layer 1: Scheduler Stop command
     parser_scheduler_stop = subparsers_scheduler.add_parser('stop', help='stop gracefully after all busy worker have '
                                                                          'finished and write remaining jobs to '
