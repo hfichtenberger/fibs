@@ -284,11 +284,15 @@ def scheduler_start(args):
 
     # Send mail?
     if args.sendmail is not None:
-        mailhandle = subprocess.Popen('mail -s ' + email_title + ' ' + args.sendmail, stdin=subprocess.PIPE)
-        mailhandle.communicate(email_msg)
-        if mailhandle.wait() == 0:
-            log_message(log_file, 'Sent mail to operator.')
-        else:
+        try:
+            mailhandle = subprocess.Popen('mail -s "' + email_title + '" "' + args.sendmail + '"',
+                                          stdin=subprocess.PIPE, shell=True)
+            mailhandle.communicate(email_msg)
+            if mailhandle.wait() == 0:
+                log_message(log_file, 'Sent mail to operator.')
+            else:
+                log_message(log_file, 'Sending mail to operator failed.')
+        except OSError:
             log_message(log_file, 'Sending mail to operator failed.')
 
     # Exit workers?
@@ -530,7 +534,7 @@ def startup():
     parser_scheduler_start.add_argument('-r', '--resign', action='store', type=int, default=5,
                                         help='number of times a job is allowed to fail before it is removed from '
                                              'scheduling.')
-    parser_scheduler_start.add_argument('-m', '--sendmail', action='store', type=string,
+    parser_scheduler_start.add_argument('-m', '--sendmail', action='store', type=str,
                                         help='a mail will be sent to this address when scheduling is paused'
                                              'or finished. Uses the "mail" command. ')
     # Layer 1: Scheduler Continue command
@@ -546,7 +550,7 @@ def startup():
     parser_scheduler_continue.add_argument('-r', '--resign', action='store', type=int, default=5,
                                            help='number of times a job is allowed to fail before it is removed from '
                                                 'scheduling.')
-    parser_scheduler_start.add_argument('-m', '--sendmail', action='store', type=string,
+    parser_scheduler_continue.add_argument('-m', '--sendmail', action='store', type=str,
                                         help='a mail will be sent to this address when scheduling is paused'
                                              'or finished. Uses the "mail" command. ')
     # Layer 1: Scheduler Stop command
