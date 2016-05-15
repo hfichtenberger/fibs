@@ -2,26 +2,14 @@
 
 """FIBS - a file-based scheduler"""
 
-# Python <= 2.6 requires argparse package
-import __builtin__
+try:
+    import argparse
+except (ImportError, NameError):
+    print('It seems that you are using an old version of Python. Please download argparse.py from argparse package and place it in the same directory as this file. At the moment of this writing, it is available at:')
+    print('https://pypi.python.org/pypi/argparse')
+    sys.exit(1)
 
 
-def tryimport(name, globals={}, locals={}, fromlist=[], level=-1):
-    try:
-        return realimport(name, globals, locals, fromlist, level)
-    except ImportError:
-        if name == 'argparse' and sys.version_info[0] <= 2 and sys.version_info[1] <= 6:
-            print('Python <= 2.6: Please download argparse.py from argparse package and place it in the same'
-                  'directory as this file. At the moment of this writing, it is available at:')
-            print('https://pypi.python.org/pypi/argparse')
-            sys.exit(1)
-        else:
-            raise
-
-
-realimport, __builtin__.__import__ = __builtin__.__import__, tryimport
-
-import argparse
 import datetime
 import os
 import random
@@ -69,7 +57,6 @@ def print_error(message):
 
 def log_message(filehandle, message):
     filehandle.write(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ' ' + message + '\n')
-    #print(message)
 
 
 def get_input(lowercase=False):
