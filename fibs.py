@@ -637,6 +637,9 @@ def run_help(args):
 
 
 def startup():
+	if sys.version_info.major >= 3 :
+		print_error("This script does not support Python 3+ and might fail at any time.")
+	
 	parser = argparse.ArgumentParser(description='FIBS - a file-based scheduler', formatter_class=argparse.RawDescriptionHelpFormatter)
 	subparsers = parser.add_subparsers()
 	# Layer 0: Scheduler command
